@@ -12,6 +12,11 @@ This repository adapts and refactors the **Team-1** solution from the SenNet + H
 
 ## Example Segmentation
 
-![Segmentation exemplar on a HiP-CT volume.](figure/segmentationExemplar.png)
+![Arteries Segmentation exemplar on a HiP-CT volume.](figure/segmentationExemplar.png)
 
-*Figure: Example output from the adapted 2.5D U-Net pipeline.*
+*Figure: Example output from the adapted 2.5D U-Net pipeline for arteries segmentation.*
+
+
+![Cortex Segmentation exemplar on a HiP-CT volume.](figure/cortexSegmentationExemplar.png)
+
+*Figure: Example output from the adapted 2.5D U-Net pipeline for cortex segmentation.*
