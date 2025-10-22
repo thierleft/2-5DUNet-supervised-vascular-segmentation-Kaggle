@@ -1,4 +1,3 @@
-
 import os
 import sys
 import cv2
@@ -22,23 +21,13 @@ import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader
 
 # Download from https://www.kaggle.com/datasets/clevert/segmentation-models-pytorch-extra-stem-2-5d 
-sys.path.append("/u/yashjain/kaggle_4/winning-team-solutions/team-1/segmentation-models-pytorch-extra-stem-2-5d")
+#sys.path.append("/u/yashjain/kaggle_4/winning-team-solutions/team-1/segmentation-models-pytorch-extra-stem-2-5d")
 import segmentation_models_pytorch as smp
+from multiprocessing import Value
+
 
 ############################################### helper functions ##################################################
-def rle_encode(img):
-    '''
-    img: numpy array, 1 - mask, 0 - background
-    Returns run length as string formated
-    '''
-    pixels = img.flatten()
-    pixels = np.concatenate([[0], pixels, [0]])
-    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
-    runs[1::2] -= runs[::2]
-    rle = ' '.join(str(x) for x in runs)
-    if rle=='':
-        rle = '1 0'
-    return rle
+
 
 def is_dist_avail_and_initialized():
     if not dist.is_available():
@@ -100,7 +89,7 @@ class Ensemble(object):
         self.models = []
         for ckpt_path in ckpts:
             model = load_model(backbone, in_channels, num_classes, ckpt_path).to(device)
-            model = torch.compile(model)
+            #model = torch.compile(model)
             self.models.append(model)
             
     def __call__(self, x):
@@ -143,8 +132,15 @@ class InferenceDataset(torch.utils.data.Dataset):
             image =  volume[:, :, idxs]
         else:
             image =  volume[:, idxs, :].transpose(0, 2, 1)
-        image = image.astype(np.float32)
-        image = image / 65535.0
+
+        # Apply same normalisation as for training
+        mean = image.mean()
+        std = image.std() + 1e-8
+        image = (image - mean) / std
+
+        image = np.clip(image, -3, 3)
+
+        image = ((image + 3) / 6.0).astype(np.float32)     
         return image
     
     def __getitem__(self, idx):
@@ -204,9 +200,13 @@ def main_worker(rank, args, queue):
                     masks = batch_pred_mask.to(torch.float16).cpu().numpy()
                     queue.put((axis, idx, masks, max_len))
                     pbar.set_postfix(shape=images.shape)
-                        
-                        
-def write_worker(args, queue, write_lock):
+
+
+def write_worker(args, queue, write_lock, progress_counter, total_slices):
+    pbar = None
+    if is_main_process():
+        pbar = tqdm(total=total_slices, desc=f"Writing predictions  {args.group}", position=0, ncols=150)
+
     while True:
         axis, idx, masks, max_len = queue.get()
         if idx is None:
@@ -234,8 +234,15 @@ def write_worker(args, queue, write_lock):
                 else:
                     pred_masks[:, :, idxs] += mask.transpose(1, 2, 0)
             pred_masks.flush()
-            del pred_masks, masks, axis, idx, max_len
-                        
+            del pred_masks
+
+        with progress_counter.get_lock():
+            progress_counter.value += len(idx)
+            if is_main_process() and pbar:
+                pbar.n = progress_counter.value
+                pbar.refresh()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
@@ -252,6 +259,8 @@ if __name__ == "__main__":
     parser.add_argument("--rot", type=int, default=3)
     parser.add_argument("--overlap", action="store_true", default=False)
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--input_folder", type=str, required=True, help="Path to raw .tif images")
+
     
     args = parser.parse_args()
     args.image_size = [args.image_size]
@@ -260,12 +269,17 @@ if __name__ == "__main__":
     args.rot = [1, 2, 3][:args.rot]
     args.ckpt_path = args.ckpt_path.split("|")
     args.num_processes = torch.cuda.device_count()
+    print('Initialising inference')
     
-    ls_images = sorted(glob(os.path.join("/u/yashjain/kaggle_4/competition-data/full-test-dataset", args.group, "images", "*.tif")))
+    ls_images = sorted(glob(os.path.join(args.input_folder, "*.tif")))
+
     h, w = cv2.imread(ls_images[-1], cv2.IMREAD_UNCHANGED).shape
     volume_shape = (len(ls_images), h, w)
-    volume_path = f"/dev/shm/{args.group}.mmap"
-    mask_path = f"/dev/shm/{args.group}_mask.mmap"
+    volume_path = f"/home/lefebvre/storage/vasc/heart/inference_output_newHs_extra/{args.group}.mmap"
+    mask_path = f"/home/lefebvre/storage/vasc/heart/inference_output_newHs_extra/{args.group}_mask.mmap"
+    
+    os.makedirs(os.path.dirname(volume_path), exist_ok=True)
+    
     if not os.path.exists(volume_path):
         volume = np.memmap(volume_path, shape=volume_shape, dtype=np.uint16, mode="w+")
         for i, path in enumerate(tqdm(ls_images, total=len(ls_images), desc=f"Caching {args.group} images")):
@@ -283,46 +297,32 @@ if __name__ == "__main__":
     args.volume_path = volume_path
     args.mask_path = mask_path
     
+    print('Starting inference')
     # inference
     queue = mp.Queue()
+
     write_lock = mp.Lock()
+    progress_counter = Value('i', 0)
+    total_slices = len(ls_images) * len(args.axis)
     inference_processes = []
     write_processes = []
+
     for rank in range(args.num_processes):
         p = mp.Process(target=main_worker, args=(rank, args, queue))
         p.start()
         inference_processes.append(p)
-    for rank in range(args.num_processes*2):
-        p = mp.Process(target=write_worker, args=(args, queue, write_lock))
+    for rank in range(args.num_processes):
+        p = mp.Process(target=write_worker, args=(args, queue, write_lock, progress_counter, total_slices))
         p.start()
         write_processes.append(p)
     for p in inference_processes:
         p.join()
-    for _ in range(args.num_processes*2):
+    for _ in range(args.num_processes):
         queue.put((None, None, None, None))
     for p in write_processes:
         p.join()
         
-    # write to csv
-    rles, ids = [], []
+
+    print('Saving binary predictions')
     pred_masks = np.memmap(args.mask_path, shape=args.volume_shape, dtype=np.float16, mode="r")
-    for i in tqdm(range(len(ls_images)), total=len(ls_images)):
-        pred_mask = pred_masks[i, :, :]
-        pred_mask = (pred_mask > args.threshold).astype(np.uint8)
-        rle = rle_encode(pred_mask)
-        path = ls_images[i].split(os.path.sep)
-        dataset = path[-3]
-        slice_id, _ = os.path.splitext(path[-1])
-        rles.append(rle)
-        ids.append(f"{dataset}_{slice_id}")
-        
-    df = pd.DataFrame.from_dict({
-        "id": ids,
-        "rle": rles
-    })
-    df.to_csv(f"{args.group}.csv", index=False)
-    del pred_masks
-    
-    # clean up memmap files
-    os.remove(args.volume_path)
-    os.remove(args.mask_path)
+

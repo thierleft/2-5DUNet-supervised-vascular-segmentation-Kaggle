@@ -20,12 +20,89 @@ from transforms import rotate_slice
 
 
 group_shapes = {
-    "kidney_1_dense": (2279, 1303, 912),
-    "kidney_1_voi": (1397, 1928, 1928),
-    "kidney_2": (2217, 1041, 1511),
-    "kidney_3": (1035, 1706, 1510),
-    "kidney_3_dense": (501, 1706, 1510),
-    "kidney_3_sparse": (1035, 1706, 1510),
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": (2279, 1303, 912),
+    "Kidney_1_LADAF_2021-17_right_VOI": (1397, 1928, 1928),
+    "Kidney_2_S-20-28_kidney_sparse": (2217, 1041, 1511),
+    "Kidney_3_merged": (1035, 1706, 1510),
+    "Kidney_3_LADAF_2020-27_kidney_dense_subset": (501, 1706, 1510),
+    "Kidney_3_LADAF_2020-27_kidney_whole_sparse": (1035, 1706, 1510),
+    "Kidney_5_LADAF_2021-17_left_half_kidney_dense":(1012,1330,1598),
+    "Kidney_6_LADAF_2022-13_kidney_bottom_dense":(501,1028,1257),
+    "dataset":(4748,2964,3400),
+    "dataset_copy":(4748,2964,3400),
+    "dataset_1":(2374,2964,3400),
+    "dataset_2":(2374,2964,3400),
+    "LADAF_2021_17":(1700,2374,1482),
+    "LADAF_2021_64":(1911,2059,1911),   
+    "LADAF_2024_28":(1577,2376,1539),
+    "LADAF_2024_56":(1846,1915,2730),         
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview":(3043,1899,2179),
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview":(3276,3042,3042),   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview":(3135,2032,2081),
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_1":(1521,1899,2179),
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_1":(1638,3042,3042),   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_1":(1567,2032,2081),
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_2":(1522,1899,2179),
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_2":(1638,3042,3042),   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_2":(1568,2032,2081),
+
+}
+
+
+group_means = {
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": 26131.518,
+    "Kidney_1_LADAF_2021-17_right_VOI": 33818.7930,
+    "Kidney_2_S-20-28_kidney_sparse": 34853.4,
+    "Kidney_3_merged": 20354.562,
+    "Kidney_3_LADAF_2020-27_kidney_dense_subset": 20354.562,
+    "Kidney_3_LADAF_2020-27_kidney_whole_sparse": 20354.562,
+    "Kidney_5_LADAF_2021-17_left_half_kidney_dense": 8422.408,
+    "Kidney_6_LADAF_2022-13_kidney_bottom_dense": 39989.56,
+    "dataset": 494.060688,
+    "dataset_copy": 494.060688,
+    "dataset_1": 496.509709,
+    "dataset_2": 491.611668,
+    "LADAF_2021_17":22140.777,
+    "LADAF_2021_64":5302.8716,   
+    "LADAF_2024_28":21111.807,
+    "LADAF_2024_56":6482.3853,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview":22140.777,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview":5302.8716,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview":21111.807,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_1":22140.777,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_1":5302.8716,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_1":21111.807,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_2":22140.777,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_2":5302.8716,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_2":21111.807,
+}
+
+group_stds = {
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": 1414.7509,
+    "Kidney_1_LADAF_2021-17_right_VOI": 3743.5740,
+    "Kidney_2_S-20-28_kidney_sparse": 2336.2703,
+    "Kidney_3_merged": 887.91486,
+    "Kidney_3_LADAF_2020-27_kidney_dense_subset": 887.91486,
+    "Kidney_3_LADAF_2020-27_kidney_whole_sparse": 887.91486,
+    "Kidney_5_LADAF_2021-17_left_half_kidney_dense": 1074.032,
+    "Kidney_6_LADAF_2022-13_kidney_bottom_dense": 4963.668,
+    "dataset": 276.178446,
+    "dataset_copy": 276.178446,
+    "dataset_1": 277.415240,
+    "dataset_2": 274.793478,
+    "LADAF_2021_17":2725.6367,
+    "LADAF_2021_64":473.3859,   
+    "LADAF_2024_28":1751.0676,
+    "LADAF_2024_56":2243.9011,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview":2725.6367,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview":473.3859,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview":1751.0676,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_1":2725.6367,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_1":473.3859,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_1":1751.0676,
+    "50um_LADAF-2021-17_bm18_heart_complete-organ_overview_2":2725.6367,
+    "50um_LADAF-2021-64_bm18_heart_complete-organ_overview_2":473.3859,   
+    "50um_LADAF-2024-28_bm18_heart_complete_organ_overview_2":1751.0676,
 }
 
 
@@ -34,28 +111,36 @@ def get_train_transforms(image_size=512):
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.Transpose(p=0.5),
-        A.Affine(scale={"x":(0.7, 1.3), "y":(0.7, 1.3)}, translate_percent={"x":(0, 0.1), "y":(0, 0.1)}, rotate=(-30, 30), shear=(-20, 20), p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=0.4, contrast_limit=0.4, p=0.5),
+        A.Affine(scale={"x":(0.7, 1.3), "y":(0.7, 1.3)}, translate_percent={"x":(0, 0.1), "y":(0, 0.1)}, rotate=(-30, 30), shear=(-20, 20),
+                 interpolation=cv2.INTER_LINEAR, 
+                 mask_interpolation=cv2.INTER_NEAREST,
+                 cval=0,
+                 cval_mask=0,
+                 mode=cv2.BORDER_REPLICATE,
+                 p=0.5),
+        A.RandomBrightnessContrast(brightness_limit=0.25, contrast_limit=0.25, brightness_by_max=False, p=0.5),
         A.OneOf([
             A.Blur(blur_limit=3, p=0.2),
             A.MedianBlur(blur_limit=3, p=0.2),
         ], p=1.0),
         A.OneOf([
-            A.ElasticTransform(alpha=1, sigma=50, alpha_affine=10, border_mode=1, p=0.5),
-            A.GridDistortion(num_steps=5, distort_limit=0.1, border_mode=1, p=0.5)
+            A.ElasticTransform(alpha=1, sigma=50, alpha_affine=10, border_mode=cv2.BORDER_REPLICATE, p=0.5),
+            A.GridDistortion(num_steps=5, distort_limit=0.1,border_mode=cv2.BORDER_REPLICATE, p=0.5)
         ], p=0.4),
         A.OneOf([
             A.Resize(image_size, image_size, cv2.INTER_LINEAR, p=1),
             A.Compose([
                 RandomResize(image_size, image_size, scale_limit_x=0.5, scale_limit_y=0.5, p=1),
-                A.PadIfNeeded(image_size, image_size, position="random", border_mode=cv2.BORDER_REPLICATE, p=1.0),
+                A.PadIfNeeded(image_size, image_size, position="random", border_mode=cv2.BORDER_REPLICATE,value=0,mask_value=0, p=1.0),
                 A.RandomCrop(image_size, image_size, p=1.0)
             ], p=1.0),
         ], p=1.0),
         A.GaussNoise(var_limit=0.05, p=0.2),
     ])
     return transforms
+
     
+
 def get_valid_transforms(image_size=512):
     transforms = A.Compose([
         A.Resize(image_size, image_size, cv2.INTER_LINEAR),
@@ -102,76 +187,93 @@ class HOADataset(Dataset):
                         
     def __len__(self):
         return len(self.metas)
+
     
     def _load_image_and_mask(self, group, slice_id):
-        # load memmap
         striped_group = group.replace('_xz', '').replace('_zy', '')
-        volume = np.memmap(os.path.join(self.memmap_dir, f"{striped_group}.mmap"), dtype=np.uint16, shape=group_shapes[striped_group], mode="r")
-        volume_mask = np.memmap(os.path.join(self.memmap_dir, f"{striped_group}_mask.mmap"), dtype=np.uint8, shape=group_shapes[striped_group], mode="r")
-        if "_xz" in group:
-            volume = volume.transpose((1, 2, 0))
-            volume_mask = volume_mask.transpose((1, 2, 0))
-        elif "_zy" in group:
-            volume = volume.transpose((2, 0, 1))
-            volume_mask = volume_mask.transpose((2, 0, 1))
-            
-        # random slice rotation
-        if random.random() < self.rotate_slice_prob:
-            try:
-                angle = np.random.uniform(-self.rotate_slice_angle_limit, self.rotate_slice_angle_limit, size=3)
-                image, mask = rotate_slice(volume, slice_id, angle, channels=self.channels, volume_mask=volume_mask)
-                image = image.transpose((2, 1, 0)) # to [channels, height, width]
-                mask = mask.transpose((2, 1, 0))
-            except:
-                # This is due to the numerical error of geometry3d
-                # rarely happen.
-                logger.warning("Rotate error. Skip Rotation!")
-                if self.channels == 1:
-                    image = volume[slice_id]
-                    mask = volume_mask[slice_id]
-                else:
-                    image = volume[np.clip(range(slice_id-self.channels//2, slice_id+self.channels//2+1), 0, volume.shape[0]-1)]
-                    mask = volume_mask[np.clip(range(slice_id-self.channels//2, slice_id+self.channels//2+1), 0, volume.shape[0]-1)]
-        else:
-            if self.channels == 1:
-                image = volume[slice_id]
-                mask = volume_mask[slice_id]
-            else:
-                image = volume[np.clip(range(slice_id-self.channels//2, slice_id+self.channels//2+1), 0, volume.shape[0]-1)]
-                mask = volume_mask[np.clip(range(slice_id-self.channels//2, slice_id+self.channels//2+1), 0, volume.shape[0]-1)]
-                
-        image = image.astype(np.float32) / 65535.0
-        mask = (mask>0).astype(np.float32)
-        return image, mask
+        volume = np.memmap(
+            os.path.join(self.memmap_dir, f"{striped_group}.mmap"),
+            dtype=np.uint16, shape=group_shapes[striped_group], mode="r"
+        )
+        mask_vol = np.memmap(
+            os.path.join(self.memmap_dir, f"{striped_group}_mask.mmap"),
+            dtype=np.uint8, shape=group_shapes[striped_group], mode="r"
+        )
 
+        # Reorient first (still memmap views, no big allocation)
+        if "_xz" in group:
+            volume   = volume.transpose((1, 2, 0))
+            mask_vol = mask_vol.transpose((1, 2, 0))
+        elif "_zy" in group:
+            volume   = volume.transpose((2, 0, 1))
+            mask_vol = mask_vol.transpose((2, 0, 1))
+
+        # ✱ Select slices BEFORE any threshold/cast
+        if self.channels == 1:
+            image = volume[slice_id]         # (H, W), still memmap-backed
+            mask  = mask_vol[slice_id]       # (H, W)
+        else:
+            idx = np.clip(
+                range(slice_id - self.channels // 2, slice_id + self.channels // 2 + 1),
+                0, volume.shape[0]-1
+            )
+            image = volume[idx]              # (C, H, W)
+            mask  = mask_vol[idx]            # (C, H, W)
+
+        # ✱ Binarize the small slice/stack only
+        mask = (mask > 0).astype(np.uint8)
+        if mask.mean() > 0.5:
+            mask = 1 - mask
+
+        # Intensity normalize image (same as before)
+        group_key = striped_group
+        if group_key in group_means and group_key in group_stds:
+            mean = group_means[group_key]
+            std  = group_stds[group_key] + 1e-8
+        else:
+            lower = np.percentile(image, 0.01)
+            upper = np.percentile(image, 99.995)
+            image = np.clip(image, lower, upper)
+            mean  = image.mean()
+            std   = image.std() + 1e-8
+
+        image = (image - mean) / std
+        image = np.clip(image, -3, 3)
+        image = ((image + 3) / 6.0).astype(np.float32)
+
+        return image, mask  # mask is uint8 here
+
+    
     def get_one_sample(self, idx):
         meta = self.metas[idx]
         group, slice_id = meta["group"], meta["slice_id"]
         image, mask = self._load_image_and_mask(group, slice_id)
         if len(image.shape) <= 2:
-            image = np.tile(image[..., None], [1, 1, 3]) # gray to rgb
-            mask = mask[None, ...]
+            image = np.tile(image[..., None], [1, 1, 3])  # gray to RGB
+            mask  = mask[None, ...]                       # (1, H, W)
         else:
-            # random flip for channel dim
             if random.random() < 0.5:
                 image = image[::-1]
-                mask = mask[::-1]
-            image = image.transpose(1, 2, 0)
+                mask  = mask[::-1]
+            image = image.transpose(1, 2, 0)              # (H, W, C) for Albumentations
 
         if self.transforms:
-            data = self.transforms(image=image, masks=mask)
-            image  = data['image']
-            mask  = (np.stack([mask>0.5 for mask in data['masks']], axis=0)).astype(np.float32)
+            # Albumentations expects a list of 2D masks
+            mask_list = [m for m in mask]                 # list length = channels
+            data = self.transforms(image=image, masks=mask_list)
+            image = data['image']
+            mask  = np.stack(data['masks'], axis=0)       # back to (C, H, W)
 
+        # Distance maps (on float)
         if self.output_dist_maps:
-            # haven't tried 3d binary2dist. maybe better?
-            dist_map = torch.tensor(np.stack([binary2dist(m).astype(np.float32) for m in mask], axis=0))
+            dist_map = torch.tensor(np.stack([binary2dist(m.astype(bool)).astype(np.float32) for m in mask], axis=0))
         else:
             dist_map = None
 
-        image = torch.tensor(np.transpose(image, (2, 0, 1)))
-        mask = torch.tensor(mask)
-            
+        # Final tensor casts
+        image = torch.tensor(np.transpose(image, (2, 0, 1)))         # float32 already
+        mask  = torch.tensor(mask.astype(np.float32))                # cast here only
+
         return image, mask, dist_map
     
     def __getitem__(self, idx):
@@ -187,7 +289,7 @@ class HOADataset(Dataset):
         data = {"image": image, "mask": mask}
         if dist_map is not None:
             data["dist_map"] = dist_map
-        return data
+        return data    
     
 class RandomResize(DualTransform):
     """Resize the input to the given height and width.

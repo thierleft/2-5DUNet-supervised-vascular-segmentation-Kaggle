@@ -10,6 +10,7 @@ from loguru import logger
 from tqdm import tqdm
 from colorama import Fore, Back, Style
 from functools import partial
+import warnings
 
 import segmentation_models_pytorch as smp
 from transformers import get_cosine_schedule_with_warmup
@@ -25,6 +26,164 @@ from dataset import get_train_transforms, get_valid_transforms, HOADataset
 from dist_utils import is_main_process, get_rank
 from engine import train_one_epoch, valid_one_epoch
 from loss import Loss
+import random
+
+import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
+def save_training_mosaic(dataset, output_dir, n_samples=8):
+    os.makedirs(output_dir, exist_ok=True)
+    
+    total_samples = min(n_samples * 2, len(dataset))
+    indices = random.sample(range(len(dataset)), k=total_samples)
+    fig, axes = plt.subplots(n_samples, 4, figsize=(16, n_samples * 3))
+
+    if n_samples == 1:
+        axes = axes[None, :]  # Ensure 2D indexing if only one row
+
+    for row in range(n_samples):
+        for col in range(2):  # 2 pairs per row
+            idx = indices[row * 2 + col]
+            img, mask, _ = dataset.get_one_sample(idx)
+
+            img_np = img.cpu().numpy().squeeze()
+            img_np = img_np[0, :, :] if img_np.ndim == 3 else img_np
+
+            mask_np = mask.cpu().numpy().squeeze()
+            mask_np = mask_np[0, :, :] if mask_np.ndim == 3 else mask_np
+
+            ax_img = axes[row, col * 2]
+            ax_mask = axes[row, col * 2 + 1]
+
+            im1 = ax_img.imshow(img_np, cmap='gray')
+            ax_img.set_title(f"Image {idx}")
+            ax_img.axis('off')
+            fig.colorbar(im1, ax=ax_img, fraction=0.046, pad=0.04)
+
+            im2 = ax_mask.imshow(mask_np, cmap='gray')
+            ax_mask.set_title(f"Mask {idx}")
+            ax_mask.axis('off')
+            fig.colorbar(im2, ax=ax_mask, fraction=0.046, pad=0.04)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "mosaic_train_samples_random.png"))
+    plt.close()
+
+
+def save_visual_predictions(model, valid_loader, output_dir, epoch, loss_value=None, n_samples=4, min_fg_ratio=0.0001):
+    import random
+    import matplotlib.pyplot as plt
+
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = ["Arial", "DejaVu Sans", "Liberation Sans", "sans-serif"]
+
+    model.eval()
+    samples_saved = 0
+    max_tries = 50
+
+    all_batches = list(iter(valid_loader))
+    random.shuffle(all_batches)
+
+    with torch.no_grad():
+        tries = 0
+        for batch in all_batches:
+            if samples_saved >= n_samples or tries >= max_tries:
+                break
+
+            images = batch["image"].cuda()
+            masks = batch["mask"].cuda()
+            preds = torch.sigmoid(model(images))
+            preds_bin = (preds > 0.5).float()
+
+            for i in range(images.shape[0]):
+                pred_np = preds_bin[i].cpu().numpy().squeeze()
+                mask_np = masks[i].cpu().numpy().squeeze()
+                img_np = images[i].cpu().numpy().squeeze()
+
+                if img_np.ndim == 3:
+                    img_np = img_np[0]
+                    mask_np = mask_np[0]
+                    pred_np = pred_np[0]
+
+                fg_ratio = np.count_nonzero(mask_np) / mask_np.size
+                if fg_ratio < min_fg_ratio:
+                    continue
+
+                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+                titles = ["Input", "Ground Truth", "Prediction"]
+                images_to_show = [img_np, mask_np, pred_np]
+
+                for ax, img, title in zip(axes, images_to_show, titles):
+                    ax.imshow(img, cmap="gray")
+                    ax.set_title(title)
+                    ax.axis("off")
+
+                fig.suptitle(f"Epoch {epoch} | Sample {samples_saved+1} | Loss: {loss_value:.4f}" if loss_value is not None else f"Epoch {epoch} | Sample {samples_saved+1}", fontsize=14)
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                save_path = os.path.join(output_dir, f"vis_epoch_{epoch}_sample_{samples_saved}.png")
+                plt.savefig(save_path)
+                plt.close()
+
+                samples_saved += 1
+                tries += 1
+                if samples_saved >= n_samples:
+                    break
+
+
+def save_training_predictions(model, train_loader, output_dir, epoch, loss_value=None, n_samples=4):
+    model.eval()
+    samples_saved = 0
+    loader_iter = iter(train_loader)
+
+    with torch.no_grad():
+        while samples_saved < n_samples:
+            try:
+                batch = next(loader_iter)
+            except StopIteration:
+                break
+
+            image = batch["image"].cuda()
+            mask = batch["mask"].cuda()
+
+            pred = model(image)
+            pred = torch.sigmoid(pred)
+            pred = (pred > 0.5).float()
+
+            for i in range(image.shape[0]):
+                pred_np = pred[i].cpu().numpy().squeeze()
+                mask_np = mask[i].cpu().numpy().squeeze()
+                img_np = image[i].cpu().numpy().squeeze()
+
+                if img_np.ndim == 3:
+                    img_np = img_np[0]
+                    mask_np = mask_np[0]
+                    pred_np = pred_np[0]
+
+                # Skip mostly empty ground truth masks
+                if np.count_nonzero(mask_np) / mask_np.size < 0.0001:
+                    continue
+
+                fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+                axes[0].imshow(img_np, cmap="gray")
+                axes[0].set_title("Train Image")
+                axes[1].imshow(mask_np, cmap="gray")
+                axes[1].set_title("Train Ground Truth")
+                axes[2].imshow(pred_np, cmap="gray")
+                axes[2].set_title("Prediction")
+
+                for ax in axes:
+                    ax.axis("off")
+
+                fig.suptitle(f"Epoch {epoch} | Train Sample {samples_saved+1} | Loss: {loss_value:.4f}" if loss_value else f"Epoch {epoch}", fontsize=12)
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                os.makedirs(output_dir, exist_ok=True)
+                save_path = os.path.join(output_dir, f"train_vis_epoch_{epoch}_sample_{samples_saved}.png")
+                plt.savefig(save_path)
+                plt.close()
+
+                samples_saved += 1
+                if samples_saved >= n_samples:
+                    break
 
 
 def get_parser():
@@ -64,6 +223,8 @@ def get_parser():
     parser.add_argument("--custom_loss_coef", type=float, default=1.0)
     parser.add_argument("--focal_alpha", type=float, default=0.25)
     parser.add_argument("--focal_gamma", type=float, default=2.0)
+    parser.add_argument("--pretrained_weights", type=str, default=None, help="Path to the pretrained .pth model weights")
+    
     
     # training
     parser.add_argument("--epochs", type=int, default=30)
@@ -84,7 +245,8 @@ def get_parser():
 
 
 def main_worker(local_rank, args):
-    
+    warnings.filterwarnings("ignore", category=FutureWarning)
+
     # local rank
     args.local_rank = local_rank
     args.rank = args.rank * args.ngpus_per_node + local_rank
@@ -104,7 +266,7 @@ def main_worker(local_rank, args):
     # Init dist env
     dist.init_process_group(
         backend=args.dist_backend,
-        init_method=f"tcp://localhost:{args.port}",
+        init_method = f"tcp://127.0.0.1:{args.port}",
         world_size=args.world_size,
         rank=args.rank,
     )
@@ -112,7 +274,11 @@ def main_worker(local_rank, args):
     
     # Log args
     if is_main_process():
+        warnings.filterwarnings("ignore", category=FutureWarning)
         logger.info(args)
+
+    print(f"[Rank {args.rank}] Using GPU {args.local_rank} / Total GPUs: {args.ngpus_per_node}")
+
     
     # Load dataset
     output_dist_maps = args.boundary_coef > 0.0
@@ -133,7 +299,7 @@ def main_worker(local_rank, args):
         channels=args.input_channels,
         transforms=get_valid_transforms(args.image_size), 
         rotate_slice_prob=0.0,
-    )
+    )   
     
     # Build Dataloader
     args.num_workers = int((args.num_workers + args.ngpus_per_node - 1) / args.ngpus_per_node)
@@ -158,13 +324,19 @@ def main_worker(local_rank, args):
         valid_set, 
         batch_size=args.valid_batch_size_per_device, 
         shuffle=False, 
-        num_workers=8, 
+        num_workers=4, 
         pin_memory=True, 
         sampler=valid_sampler,
     )
+    
+    
+    #if is_main_process():
+    #    logger.info("Saving training data mosaic to verify input...")
+    #    save_training_mosaic(train_set, args.output_dir, n_samples=4)     
+    
     logger.info(f"Train samples: {len(train_set)} | Valid samples: {len(valid_set)}")
     logger.info(f"Augmentations: \n{get_train_transforms(args.image_size)}")
-    
+        
     # Build Model
     in_channels = 3 if args.input_channels==1 else args.input_channels
     num_class = 1 if args.input_channels==1 else args.input_channels
@@ -201,6 +373,18 @@ def main_worker(local_rank, args):
         model.cuda(),
         device_ids=[args.local_rank],
     )
+    
+    if args.pretrained_weights is not None:
+        map_location = {'cuda:%d' % 0: 'cuda:%d' % args.local_rank}
+        state_dict = torch.load(args.pretrained_weights, map_location=map_location)
+        
+        # If model was trained with DataParallel/DistributedDataParallel (has 'module.' prefix)
+        if list(state_dict.keys())[0].startswith("module."):
+            model.load_state_dict(state_dict)
+        else:
+            model.module.load_state_dict(state_dict)
+        
+        logger.info(f"Loaded pretrained weights from {args.pretrained_weights}")    
     
     # Build loss_fn
     loss_fn = Loss(
@@ -245,19 +429,27 @@ def main_worker(local_rank, args):
         torch.cuda.empty_cache()
         
         # evaluate
-        iou = valid_one_epoch(model, valid_loader, loss_fn, epoch, args)
+        #iou = valid_one_epoch(model, valid_loader, loss_fn, epoch, args)
+        iou, eval_loss = valid_one_epoch(model, valid_loader, loss_fn, epoch, args)
+
         gc.collect()
         torch.cuda.empty_cache()
         
         
         if is_main_process():
             torch.save(model.state_dict(), os.path.join(args.output_dir, f"epoch_{epoch}.pth"))
+            #save_visual_predictions(model, valid_loader, args.output_dir, epoch, loss_value=eval_loss)
+            #save_training_predictions(model, train_loader, args.output_dir, epoch, loss_value=eval_loss)
             if iou > best_iou:
                 logger.info(f"{Fore.GREEN}Validation IOU Improved ({best_iou} ---> {iou})")
                 best_iou = iou
-                torch.save(model.state_dict(), os.path.join(args.output_dir, f"{args.backbone}_best.pth"))
-                logger.info(f"Model saved at {os.path.join(args.output_dir, f'{args.backbone}_best.pth')}{Style.RESET_ALL}")
+                torch.save(model.state_dict(), os.path.join(args.output_dir, f"{args.backbone}_{epoch}epoch_best.pth"))
+                logger.info(f"Model saved at {os.path.join(args.output_dir, f'{args.backbone}_{epoch}epoch_best.pth')}{Style.RESET_ALL}")
+                #save_visual_predictions(model, valid_loader, args.output_dir, epoch)
         
+        #if epoch % 5 == 0 or epoch == args.epochs:
+        #save_visual_predictions(model, valid_loader, args.output_dir, epoch)
+            
         gc.collect()  
         torch.cuda.empty_cache()           
 
@@ -266,8 +458,16 @@ def main_worker(local_rank, args):
 def main():
     parser = get_parser()
     args = parser.parse_args()
-    args.ngpus_per_node = torch.cuda.device_count()
-    args.world_size = args.ngpus_per_node * args.world_size
+
+    cvd = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if not cvd:
+        raise RuntimeError(
+            "CUDA_VISIBLE_DEVICES is empty. Refusing to run to avoid using unallocated GPUs."
+        )
+    args.ngpus_per_node = len([x for x in cvd.split(",") if x.strip() != ""])
+    args.world_size = args.ngpus_per_node  # single-node run
+    # ---------------------------------------------------------------------------
+
     mp.spawn(main_worker, nprocs=args.ngpus_per_node, args=(args,))
 
     
