@@ -5,7 +5,7 @@
 #$ -S /bin/bash
 #$ -j y
 #$ -N prepare_data
-#$ -o /home/ID/storage/STORAGESPACE_NAME/
+#$ -o  /home/ID/storage/STORAGESPACE_NAME/LOGS_FOLDER/
 
 
 echo "Running on host: $(hostname)"
