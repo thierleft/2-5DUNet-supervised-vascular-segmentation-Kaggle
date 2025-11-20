@@ -8,6 +8,8 @@ This repository adapts and refactors the **Team-1** solution from the SenNet + H
 - 🔗 **Upstream source (Team-1):** https://github.com/cns-iu/hra-sennet-hoa-kaggle-2024/tree/main/winning-team-solutions/team-1
 
 
+A tutorial to run the attached code on the UCL CS HPC is included.
+
 ---
 
 ## Example Segmentation
