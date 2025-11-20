@@ -66,11 +66,72 @@ tail -f  /home/ID/storage/STORAGESPACE_NAME/LOGS_FOLDER/prepare_data.oPROCESSID
 
 To launch training/fine-tuning, simply edit your training .sh file (example in submission_scripts folder) and submit with `qsub` like above. Since the model is essentially 2D, we "slice through" the volumes along each axis for training and validation by specifying along which axis the data loader will sample the 1536 x 1536 x 3 pseudo-volumes used. This is done by adding the extension `_xz` and `_zy` at the end of your data ID like shown below (no specification means sampling along the default XY plane).
 
+
 ```bash
 --train_groups "Subject01|Subject01_xz|Subject01_zy|Subject02|Subject02_xz|Subject02_zy"
+```
+
+Otherwise, you have a wide range of parameters you can tweak. The only one I have actually added is the `--pretrained_weights` to allow users to load weights from a previous training they might have (or for running fine-tuning on new organs/datasets after loading model weights trained on another organ/dataset for instance).
+```bash
+def get_parser():
+    parser = argparse.ArgumentParser(description="HOA Training")
+    
+    # basic
+    parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--exp", type=str, default="hoa")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--output_dir", type=str, default="./output")
+    parser.add_argument("--num_workers", type=int, default=64)
+    parser.add_argument("--device", type=str, default="cuda")
+    
+    # data
+    parser.add_argument("--memmap_dir", type=str, default="path/to/memmap")
+    parser.add_argument("--image_size", type=int, default=1536)
+    parser.add_argument(
+        "--train_groups", 
+        type=str, 
+        default="kidney_1_dense|kidney_1_dense_xz|kidney_1_dense_zy|kidney_1_voi|kidney_1_voi_xz|kidney_1_voi_zy|kidney_2|kidney_2_xz|kidney_2_zy|kidney_3_sparse|kidney_3_xz|kidney_3_zy"
+    )
+    parser.add_argument("--valid_groups", type=str, default="kidney_3_dense")
+    parser.add_argument("--normalize_dist_map", type=bool, default=False)
+    parser.add_argument("--mixup", type=float, default=0.0)
+    parser.add_argument("--rotate_slice", type=float, default=0.3)
+    parser.add_argument("--rotate_slice_limit", type=float, default=30)
+    
+    # model
+    parser.add_argument("--backbone", type=str, default="convnext_tiny")
+    parser.add_argument("--upsample_method", type=str, default="nearest")
+    parser.add_argument("--input_channels", type=int, default=3)
+    parser.add_argument("--sync_bn", type=bool, default=True)
+    parser.add_argument("--focal_coef", type=float, default=1.0)
+    parser.add_argument("--dice_coef", type=float, default=1.0)
+    parser.add_argument("--boundary_coef", type=float, default=0.01)
+    parser.add_argument("--boundary_coef_max", type=float, default=0.01)
+    parser.add_argument("--custom_loss_coef", type=float, default=1.0)
+    parser.add_argument("--focal_alpha", type=float, default=0.25)
+    parser.add_argument("--focal_gamma", type=float, default=2.0)
+    parser.add_argument("--pretrained_weights", type=str, default=None, help="Path to the pretrained .pth model weights")
+    
+    # training
+    parser.add_argument("--epochs", type=int, default=30)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight_decay", type=float, default=5e-2)
+    parser.add_argument("--train_batch_size_per_device", type=int, default=1)
+    parser.add_argument("--valid_batch_size_per_device", type=int, default=2)
+    parser.add_argument("--accumulation_steps", type=int, default=4)
+    parser.add_argument("--warmup_ratio", type=float, default=0.1)
+    
+    # ddp
+    parser.add_argument("--dist_backend", type=str, default="nccl")
+    parser.add_argument("--port", type=int, default=25555)
+    parser.add_argument("--world_size", type=int, default=1)
+    parser.add_argument("--rank", type=int, default=0)
+    
+    return parser
 ```
 
 
 ## 5. Running inference on new datasets
 
+Inference does not require you to pre-convert your TIF series to memory-mapped files, this will be done by default as a first step.
 

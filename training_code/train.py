@@ -225,7 +225,6 @@ def get_parser():
     parser.add_argument("--focal_gamma", type=float, default=2.0)
     parser.add_argument("--pretrained_weights", type=str, default=None, help="Path to the pretrained .pth model weights")
     
-    
     # training
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--lr", type=float, default=1e-4)
