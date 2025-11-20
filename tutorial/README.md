@@ -31,6 +31,21 @@ rm DATASET_NAME.zip
 ```
 
 
+## 3. Preprocess dataset for training or fine-tuning
+
+Launch with `qsub` your preprocessing script (`prepare_dataset.py`). This part does not require GPU.
+
+```
+/path/to/parent  <-- folder to be passed as input
+├── Subject01
+├── Subject01_labels
+├── Subject02
+├── Subject02_labels
+├── ...
+└── (other stuff is allowed, will be ignored if it doesn't match)
+```
+
+
 
 
 

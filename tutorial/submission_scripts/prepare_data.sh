@@ -20,7 +20,7 @@ cd $HOME/storage/vasc/
 
 # Run script (NOTE: remove the trailing backslash '\' on the last line or make sure it's multiline)
 python prepare_data.py \
-    -s /home/lefebvre/storage/vasc/LADAF_2024_56 \
-    -o /home/lefebvre/storage/vasc/heart/preprocessed_Hs_data
+    -s TRAININGDATA_FOLDER \
+    -o PREPROCESSEDDATA_FOLDER
 
 echo "End time: $(date)"
