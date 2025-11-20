@@ -6,7 +6,7 @@ Step-by-step guide to run the Team 1 Kaggle model on the UCL CS HPC.
 
 ## 1. Prepare dataset and essential metadata after downloading TIFF slices
 
-You can access HiP-CT datasets on your local machine through Globus (some details here https://github.com/HiPCTProject) or using `hoa-tools` (repository here https://github.com/HumanOrganAtlas/hoa-tools). A script in the [preprocessing_helpers folder][2-5DUNet-supervised-vascular-segmentation-Kaggle/tutorial/preprocessing_helpers/] is included to download datasets as TIFF files through `hoa-tools`. 
+You can access HiP-CT datasets on your local machine through Globus (some details here https://github.com/HiPCTProject) or using `hoa-tools` (repository here https://github.com/HumanOrganAtlas/hoa-tools). A script in the [preprocessing_helpers folder](2-5DUNet-supervised-vascular-segmentation-Kaggle/tutorial/preprocessing_helpers/) is included to download datasets as TIFF files through `hoa-tools`. 
 
 To alleviate the impact of intensity histogram shifts, a normalization based on z-score is conducted in the model's data loader. This data loader requires the data shape as [Z,X,Y], mean and standard deviation (SD). A script in the preprocessing_helpers is included to compute means and SD is provided, and requires the user to have produced organ masks to compute intensity from that region of interest (ROI), ignoring background intensities. I would recommend using `organ-masker` for this (available in respository https://github.com/HiPCTProject/organ-masker). You then need to manually input these values in the `dataset.py` script (all normalization is handled in the code from there).
 
