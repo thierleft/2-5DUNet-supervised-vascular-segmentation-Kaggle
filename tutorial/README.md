@@ -47,8 +47,8 @@ If you want to fine-tune or train the network on your own datasets, carry on rea
 
 The Python call should look simply like:
 ```bash
-python prepare_data.py \
-    -s TRAININGDATA_FOLDER \
+python prepare_data.py 
+    -s TRAININGDATA_FOLDER 
     -o PREPROCESSEDDATA_FOLDER
 ```
 
@@ -94,19 +94,18 @@ To launch training/fine-tuning, simply edit your training .sh file (example in s
 Otherwise, you have a wide range of parameters you can tweak. The only one I have actually added is the `--pretrained_weights` to allow users to load weights from a previous training they might have (or for running fine-tuning on new organs/datasets after loading model weights trained on another organ/dataset for instance). Your Python call could look like this for a fine-tuning where we load model weights from a previous training:
 
 ```bash
-python train.py \
-    --port $PORT \
-    --memmap_dir PREPROCESSEDDATA_FOLDER \
-    --train_groups "Subject01|Subject01_xz|Subject01_zy|Subject02|Subject02_xz|Subject02_zy" \
-    --valid_groups "SubjectN|SubjectN_xz|SubjectN_zy" \
-    --epochs 20 \
-    --lr 1e-4 \
-    --weight_decay 3e-5 \
-    --train_batch_size_per_device 6 \
-    --valid_batch_size_per_device 6 \
-    --accumulation_steps 2 \
-    --num_workers 2 \
-    --pretrained_weights PRETRAINEDWEIGHTS_FOLDER/PRETRAINEDWEIGHTS.pth \
+python train.py 
+    --memmap_dir PREPROCESSEDDATA_FOLDER 
+    --train_groups "Subject01|Subject01_xz|Subject01_zy|Subject02|Subject02_xz|Subject02_zy" 
+    --valid_groups "SubjectN|SubjectN_xz|SubjectN_zy" 
+    --epochs 20 
+    --lr 1e-4 
+    --weight_decay 3e-5 
+    --train_batch_size_per_device 6 
+    --valid_batch_size_per_device 6 
+    --accumulation_steps 2 
+    --num_workers 2 
+    --pretrained_weights PRETRAINEDWEIGHTS_FOLDER/PRETRAINEDWEIGHTS.pth 
     --output_dir OUTPUT_FOLDER
 ```
 
@@ -171,7 +170,7 @@ def get_parser():
 ```
 
 
-During training/fine-tunin, the model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum.
+During training/fine-tuning, the model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum.
 
 ## 5. Running inference on new datasets
 
@@ -181,6 +180,32 @@ During training/fine-tunin, the model will save the weights of the best model (a
 
 Inference does not require you to pre-convert your TIFF series to memory-mapped files, this will be done by default as a first step. Then, predictions along orthogonal axes are cumulated in another memory-mapped file after launching your inference script on a GPU node. On top of running the model at least once along each orthogonal axis, 2.5D tiles will be flipped in each direction with  `--flip` argument (already set by default) and tiles will be rotated along Z by 90, 180 and 270 degrees with `--rot` argument. Tile-specific predictions are averaged from all these augmentations before thresholding to binary mask when exporting to TIFF to alleviate some of the biases from the 2.5D processing. This step won't write TIFF slices yet, since splitting the GPU processing from the memory-mapped volume to TIFF series export was more optimal as the writing on CPU is much faster using the second script for this conversion that I adapted. So first, run with `qsub` your inference .sh script in the submission_scripts folder (calling `inference.py`).
 
+```bash
+python inference.py 
+    --group Subject01 
+    --ckpt_path PRETRAINEDWEIGHTS_FOLDER/PRETRAINEDWEIGHTS.pth 
+    --axis "z|y|x" 
+    --flip 3 
+    --rot 3 
+    --overlap 
+    --input_folder /home/ID/storage/STORAGESPACE_NAME/INFERENCEDATA_FOLDER
+    --output_folder /home/ID/storage/STORAGESPACE_NAME/INFERENCEOUTPUT_FOLDER
+
+```
+
+
 ### Write binary TIFFs series from thresholded memory-mapped files
 
-This step now allows you to obtain full series of TIFF slices matching your original image datasets given memory-mapped files from the inference step. You could adapt this code/step to output any other type of volumetric file format (NIFTI, multi-page TIFF, NRRD, HDF5, etc.) if your datasets have a reasonable shape.
+This step now allows you to obtain full series of TIFF slices matching your original image datasets given memory-mapped files from the inference step. You could adapt this code/step to output any other type of volumetric file format (NIFTI, multi-page TIFF, NRRD, HDF5, etc.) if your datasets have a reasonable shape. The code is written to massively accelerate the writing of thousands of TIFF images using CPU multi-processing. You can launch `exportinference_toTIFF.py` based on the example .sh script in the submission_scripts folder with a Python call that should look like this for a single dataset:
+
+```bash
+python exportInference_toTIFF.py 
+  --mmap /home/ID/storage/STORAGESPACE_NAME/INFERENCEOUTPUT_FOLDER/Subject01_mask.mmap 
+  --shape 1691 1037 785 
+  --out /home/ID/storage/STORAGESPACE_NAME/INFERENCEOUTPUT_FOLDER/TIF/Subject01 
+  --threshold 0.4 
+  --nprocs 48
+
+```
+
+

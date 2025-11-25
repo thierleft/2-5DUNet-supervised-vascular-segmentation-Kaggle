@@ -31,9 +31,9 @@ cd $HOME/storage/STORAGESPACE_NAME/
 
 # Run script (NOTE: remove the trailing backslash '\' on the last line or make sure it's multiline)
 python exportInference_toTIFF.py \
-  --mmap /home/lefebvre/storage/vasc/heart/inference_output_newHs_extra/8_246um_AA11_mouseKidney_overview_mask.mmap \
+  --mmap /home/ID/storage/STORAGESPACE_NAME/INFERENCEOUTPUT_FOLDER/Subject01_mask.mmap \
   --shape 1691 1037 785 \
-  --out /home/lefebvre/storage/vasc/heart/inference_output_heart/TIF_Hs_extra1/8_246um_AA11_mouseKidney_overview \
+  --out /home/ID/storage/STORAGESPACE_NAME/INFERENCEOUTPUT_FOLDER/TIF/Subject01 \
   --threshold 0.4 --nprocs 48
 
 echo "End time: $(date)"
