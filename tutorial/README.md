@@ -109,7 +109,7 @@ python train.py
     --output_dir OUTPUT_FOLDER
 ```
 
-All the input arguments that can be added are stated below:
+All the input arguments that can be added are stated below (in `train.py`):
 
 ```python
 def get_parser():
@@ -170,7 +170,27 @@ def get_parser():
 ```
 
 
-During training/fine-tuning, the model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum.
+During training/fine-tuning, the model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum. Also, as a reminder, before launching any training or fine-tuning, you need to make sure that you have updated the `dataset.py` code including metadata (shape, mean, SD) for each dataset that will be used, which should look like this:
+
+```python
+group_shapes = {
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": (2279, 1303, 912),
+    "Kidney_2_S-20-28_kidney_sparse": (2217, 1041, 1511),
+    ...
+}
+
+group_means = {
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": 26131.518,
+    "Kidney_2_S-20-28_kidney_sparse": 34853.4,
+    ...
+}
+
+group_stds = {
+    "Kidney_1_LADAF_2021-17_right_whole_kidney": 1414.7509,
+    "Kidney_2_S-20-28_kidney_sparse": 2336.2703,
+    ...
+}
+```
 
 ## 5. Running inference on new datasets
 
