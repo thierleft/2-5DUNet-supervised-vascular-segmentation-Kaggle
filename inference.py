@@ -260,6 +260,8 @@ if __name__ == "__main__":
     parser.add_argument("--overlap", action="store_true", default=False)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--input_folder", type=str, required=True, help="Path to raw .tif images")
+    parser.add_argument("--output_folder", type=str, required=True, help="Folder to write outputs (.mmap, etc.)")
+
 
     
     args = parser.parse_args()
@@ -269,16 +271,17 @@ if __name__ == "__main__":
     args.rot = [1, 2, 3][:args.rot]
     args.ckpt_path = args.ckpt_path.split("|")
     args.num_processes = torch.cuda.device_count()
+    args.output_folder = os.path.abspath(args.output_folder)    
     print('Initialising inference')
     
     ls_images = sorted(glob(os.path.join(args.input_folder, "*.tif")))
 
     h, w = cv2.imread(ls_images[-1], cv2.IMREAD_UNCHANGED).shape
     volume_shape = (len(ls_images), h, w)
-    volume_path = f"/home/lefebvre/storage/vasc/heart/inference_output_newHs_extra/{args.group}.mmap"
-    mask_path = f"/home/lefebvre/storage/vasc/heart/inference_output_newHs_extra/{args.group}_mask.mmap"
     
-    os.makedirs(os.path.dirname(volume_path), exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
+    volume_path = os.path.join(args.output_folder, f"{args.group}.mmap")
+    mask_path   = os.path.join(args.output_folder, f"{args.group}_mask.mmap")
     
     if not os.path.exists(volume_path):
         volume = np.memmap(volume_path, shape=volume_shape, dtype=np.uint16, mode="w+")
@@ -323,6 +326,6 @@ if __name__ == "__main__":
         p.join()
         
 
-    print('Saving binary predictions')
+    print('Saving predictions')
     pred_masks = np.memmap(args.mask_path, shape=args.volume_shape, dtype=np.float16, mode="r")
 

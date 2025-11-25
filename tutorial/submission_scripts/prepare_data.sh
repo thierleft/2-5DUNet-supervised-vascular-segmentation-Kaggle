@@ -16,7 +16,7 @@ source /share/apps/source_files/anaconda/conda-2022-5.source
 conda activate vascSeg39
 
 # Navigate to working directory
-cd $HOME/storage/vasc/
+cd $HOME/storage/STORAGESPACE_NAME/
 
 # Run script (NOTE: remove the trailing backslash '\' on the last line or make sure it's multiline)
 python prepare_data.py \

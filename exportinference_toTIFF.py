@@ -2,58 +2,31 @@
 """
 CPU-only saver for segmentation predictions stored in a memory-mapped 3D volume.
 
-This script is designed to run on a CPU node (e.g., an HPC login/CPU partition)
-and massively parallelize writing thousands of per-slice TIFF masks from a
+This script is designed to run on a CPU node and massively parallelize writing from a
 float16 memmap volume produced by a prior GPU inference step.
 
-Key features
-------------
-- **No GPU / torch required** (pure Python + NumPy + optional tifffile/OpenCV).
-- **Process-level parallelism** across slices using concurrent.futures.
-- Reads the memmap read-only; each worker opens it once (per process).
-- Optional CSV of RLE-encoded masks (like Kaggle format) for each slice.
-- Flexible naming: use a list of names, mirror an input image folder, or
-  default to zero-padded indices.
-- Optional compressed TIFF via tifffile (zlib) to save space.
-- Supports chunked/arrayed processing via `--start`/`--end` for HPC job arrays.
+- Save TIFF series
+- Optional CSV of RLE-encoded masks (like Kaggle format) for each slice
+- Optional compressed TIFF via tifffile (zlib) to save space
+- Supports chunked/arrayed processing
 
-Assumptions
------------
-- The memmap file contains a SINGLE-CHANNEL prediction volume of shape (Z, Y, X)
-  with dtype float16 in range ~[0,1]. This matches the aggregated mask you
-  built in your inference script at `args.mask_path`.
-
-Examples
---------
-1) Basic (OpenCV writer):
+Basic TIFF writing:
    python save_mmap_to_tifs.py \
-       --mmap /home/lefebvre/storage/vasc/inference_output_OG/kidney_5_mask.mmap \
-       --shape 4000 39000 39000 \
-       --out /home/lefebvre/storage/vasc/inference_output_OG/TIF/kidney_5 \
+       --mmap /home/lefebvre/storage/vasc/inference_output/kidney_5_mask.mmap \
+       --shape 4000 3900 3900 \
+       --out /home/lefebvre/storage/vasc/inference_output/TIF/kidney_5 \
        --threshold 0.5 --nprocs 32
 
-2) With original slice names from input folder (mirrors raw names, faster than reading full images):
+tifffile writer with compression + CSV RLE:
    python save_mmap_to_tifs.py \
-       --mmap /home/lefebvre/storage/vasc/inference_output_OG/kidney_5_mask.mmap \
-       --input-folder /data/raw/kidney_5/images \
-       --out /home/lefebvre/storage/vasc/inference_output_OG/TIF/kidney_5
-
-3) tifffile writer with compression + CSV RLE:
-   python save_mmap_to_tifs.py \
-       --mmap /home/lefebvre/storage/vasc/inference_output_OG/kidney_5_mask.mmap \
-       --shape 4000 39000 39000 \
-       --out /home/lefebvre/storage/vasc/inference_output_OG/TIF/kidney_5 \
-       --csv /home/lefebvre/storage/vasc/inference_output_OG/CSV/kidney_5.csv \
+       --mmap /home/lefebvre/storage/vasc/inference_output/kidney_5_mask.mmap \
+       --shape 4000 3900 3900 \
+       --out /home/lefebvre/storage/vasc/inference_output/TIF/kidney_5 \
+       --csv /home/lefebvre/storage/vasc/inference_output/CSV/kidney_5.csv \
        --group kidney_5 --tifffile --compress zlib --nprocs 48
 
-4) Split work across multiple array jobs (e.g., SLURM):
-   # job 0
-   python save_mmap_to_tifs.py --mmap ... --shape Z Y X --out ... --start 0   --end 1000
-   # job 1
-   python save_mmap_to_tifs.py --mmap ... --shape Z Y X --out ... --start 1000 --end 2000
-   ...
-
 """
+
 from __future__ import annotations
 import os
 import sys
