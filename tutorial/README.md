@@ -198,7 +198,7 @@ group_stds = {
 
 ### Cumulate averaged predictions in memory-mapped files
 
-Inference does not require you to pre-convert your TIFF series to memory-mapped files, this will be done by default as a first step. Then, predictions along orthogonal axes are cumulated in another memory-mapped file after launching your inference script on a GPU node. On top of running the model at least once along each orthogonal axis, 2.5D tiles will be flipped in each direction with  `--flip` argument (already set by default) and tiles will be rotated along Z by 90, 180 and 270 degrees with `--rot` argument. Tile-specific predictions are averaged from all these augmentations before thresholding to binary mask when exporting to TIFF to alleviate some of the biases from the 2.5D processing. This step won't write TIFF slices yet, since splitting the GPU processing from the memory-mapped volume to TIFF series export was more optimal as the writing on CPU is much faster using the second script for this conversion that I adapted. So first, run with `qsub` your inference .sh script in the submission_scripts folder (calling `inference.py`).
+Now that we have a trained model, we can load the weights of the best model obtained during training/fine-tuning and run inference on new datasets. Inference does not require you to pre-convert your TIFF series to memory-mapped files, this will be done by default as a first step. Then, predictions along orthogonal axes are cumulated in another memory-mapped file after launching your inference script on a GPU node. On top of running the model at least once along each orthogonal axis, 2.5D tiles will be flipped in each direction with  `--flip` argument (already set by default) and tiles will be rotated along Z by 90, 180 and 270 degrees with `--rot` argument. Tile-specific predictions are averaged from all these augmentations before thresholding to binary mask when exporting to TIFF to alleviate some of the biases from the 2.5D processing. This step won't write TIFF slices yet, since splitting the GPU processing from the memory-mapped volume to TIFF series export was more optimal as the writing on CPU is much faster using the second script for this conversion that I adapted. So first, run with `qsub` your inference .sh script in the submission_scripts folder (calling `inference.py`).
 
 ```bash
 python inference.py 
@@ -229,3 +229,7 @@ python exportInference_toTIFF.py
 ```
 
 
+---
+
+
+If you have any questions, don't hesitate to reach out at tll42@cantab.ac.uk. 
