@@ -1,6 +1,6 @@
-# 2.5D U-Net for Vascular Segmentation (HiP-CT) Tutorial
+# 2.5D U-Net for Segmentation Tutorial
 
-Step-by-step guide to run the Team 1 Kaggle model on the UCL CS HPC. The goal is to train/fine-tune this supervised 2.5D U-Net with ConvNeXt-tiny encoder for segmentation of vasculature or other structures in 3D HiP-CT volumes.
+Step-by-step guide to run the Team 1 Kaggle model on the UCL CS HPC. The goal is to train/fine-tune this supervised 2.5D U-Net with ConvNeXt-tiny encoder for segmentation of vasculature or other structures in 3D HiP-CT volumes and then run inference for downstream analyses of these segmentation.
 
 ---
 
@@ -43,10 +43,19 @@ It will attempt zipping all files to a zipped folder, download it, and then unzi
 
 > **TL;DR** From input TIFF slices, produce memory-mapped files used to train/fine-tune.
 
-If you want to fine-tune or train the network on your own datasets, carry on reading here, but if you simply want to run inference, skip to section 5 below. We now want to convert the TIFF series for both images and labels to memory-mapped volumetric files for all subjects (*e.g.* Subject01.mmap and Subject01_mask.mmap). Launch with `qsub` your preprocessing .sh script in the submission_scripts folder (calling `prepare_dataset.py`). N.B. This part does not yet require GPU. We will convert your dataset from
+If you want to fine-tune or train the network on your own datasets, carry on reading here, but if you simply want to run inference, skip to **Section 5** below. We now want to convert the TIFF series for both images and labels to memory-mapped volumetric files for all subjects (*e.g.* Subject01.mmap and Subject01_mask.mmap). Launch with `qsub` your preprocessing .sh script in the submission_scripts folder (calling `prepare_dataset.py`). N.B. This part does not yet require GPU. 
+
+The Python call should look simply like:
+```bash
+python prepare_data.py \
+    -s TRAININGDATA_FOLDER \
+    -o PREPROCESSEDDATA_FOLDER
+```
+
+We will convert your dataset from
 
 ```
-/path/to/parent  <-- folder to be passed as input
+/path/to/TRAININGDATA_FOLDER  <-- folder to be passed as input
 ├── Subject01
 ├── Subject01_labels
 ├── Subject02
@@ -58,7 +67,7 @@ If you want to fine-tune or train the network on your own datasets, carry on rea
 to the following structure below, including only the memory-mapped files that will be loaded more efficiently than TIFF series later during training or fine-tuning.
 
 ```
-/path/to/preprocessed data folder  <-- folder to be passed as output
+/path/to/PREPROCESSEDDATA_FOLDER  <-- folder to be passed as output
 ├── Subject01.mmap
 ├── Subject01_mask.mmap
 ├── Subject02.mmap
@@ -66,7 +75,7 @@ to the following structure below, including only the memory-mapped files that wi
 └── ...
 ```
 
-I like tracking the progress of my scripts (especially the training/fine-tuning) using the command line below on the output log files (live updates with `-f`).
+I like tracking the progress of my scripts (especially the training/fine-tuning) using the command line below on the output log files in the folder you specified with the `-o` flag in your .sh script (live updates with `-f`).
 ```bash
 tail -f  /home/ID/storage/STORAGESPACE_NAME/LOGS_FOLDER/prepare_data.oPROCESSID
 ```
@@ -82,7 +91,27 @@ To launch training/fine-tuning, simply edit your training .sh file (example in s
 --train_groups "Subject01|Subject01_xz|Subject01_zy|Subject02|Subject02_xz|Subject02_zy"
 ```
 
-Otherwise, you have a wide range of parameters you can tweak. The only one I have actually added is the `--pretrained_weights` to allow users to load weights from a previous training they might have (or for running fine-tuning on new organs/datasets after loading model weights trained on another organ/dataset for instance).
+Otherwise, you have a wide range of parameters you can tweak. The only one I have actually added is the `--pretrained_weights` to allow users to load weights from a previous training they might have (or for running fine-tuning on new organs/datasets after loading model weights trained on another organ/dataset for instance). Your Python call could look like this for a fine-tuning where we load model weights from a previous training:
+
+```bash
+python train.py \
+    --port $PORT \
+    --memmap_dir PREPROCESSEDDATA_FOLDER \
+    --train_groups "Subject01|Subject01_xz|Subject01_zy|Subject02|Subject02_xz|Subject02_zy" \
+    --valid_groups "SubjectN|SubjectN_xz|SubjectN_zy" \
+    --epochs 20 \
+    --lr 1e-4 \
+    --weight_decay 3e-5 \
+    --train_batch_size_per_device 6 \
+    --valid_batch_size_per_device 6 \
+    --accumulation_steps 2 \
+    --num_workers 2 \
+    --pretrained_weights PRETRAINEDWEIGHTS_FOLDER/PRETRAINEDWEIGHTS.pth \
+    --output_dir OUTPUT_FOLDER
+```
+
+All the input arguments that can be added are stated below:
+
 ```python
 def get_parser():
     parser = argparse.ArgumentParser(description="HOA Training")
@@ -140,7 +169,9 @@ def get_parser():
     
     return parser
 ```
-The model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum.
+
+
+During training/fine-tunin, the model will save the weights of the best model (as a `.pth` file) at any epoch where the validation loss reached a new minimum.
 
 ## 5. Running inference on new datasets
 

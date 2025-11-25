@@ -4,7 +4,7 @@
 #$ -S /bin/bash
 #$ -j y
 #$ -N download_FULLDATASET
-#$ -o /home/ID/storage/STORAGESPACE_NAME/
+#$ -o  /home/ID/storage/STORAGESPACE_NAME/LOGS_FOLDER/
 
 
 hostname
