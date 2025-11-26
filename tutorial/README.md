@@ -4,15 +4,29 @@ Step-by-step guide to run the Team 1 Kaggle model on the UCL CS HPC. The goal is
 
 ---
 
-## 1. Prepare dataset and essential metadata after downloading TIFF slices
+## 1. Prepare your Python environment for running the Kaggle Team 1 model
 
-> **TL;DR** Need TIFF slices, dataset dimensions, mean and standard deviation within organ mask.
+> **TL;DR** Obtain access to cluster and set your Python environment with specified requirements.
+
+To get started, you first need to obtain access to the UCL computer science (CS) high performance cluster (HPC), ideally asking for additional project storage space (4TB or less) linked to your home folder and then request to be added under the "leelab" group to access the 8 H100 GPUs. Specific instructions are available following these two links https://liveuclac.sharepoint.com/sites/MSMHGroup/SitePages/High-Performance-Computing-clusters.aspx and https://hpc.cs.ucl.ac.uk/, or asking current lab members. To use conda efficiently, you will need to create an environment and move it to your project storage space. Always submit bash/conda commands within an `.sh` file with `qsub`  for job scheduling within the workload management system (SGE) of UCL CS HPC rather than typing commands directly in the command prompt which will be extremely slow to run. I have included multiple `.sh` files in the submission_scripts folders that we will use for every single step below. You will notice that we always need to source conda and CUDA for running Python scripts using GPU. 
+
+After initializing a Python 3.9 environment with conda and having moved it in your storage space, you could run for instance the `envInstallTorch.sh` from the submissions_scripts folder and install all dependencies by submitting it as a job (run `qstat` to check if you have other jobs running):
+
+```bash
+qsub envInstallTorch.sh
+```
+
+You would now have a working conda environment that can be used for all training/fine-tuning/inference.
+
+## 2. Prepare dataset and essential metadata after downloading TIFF slices
+
+> **TL;DR** Need all datasets as TIFF slices with dataset dimensions, mean and standard deviation within organ mask before running training.
 
 You can access HiP-CT datasets on your local machine through Globus (some details here https://github.com/HiPCTProject) or using `hoa-tools` (repository here https://github.com/HumanOrganAtlas/hoa-tools). A script in the preprocessing_helpers folder is included to download datasets as TIFF files through `hoa-tools`. 
 
 To alleviate the impact of intensity histogram shifts, a normalization based on z-score is conducted in the model's data loader. This data loader requires the data shape as [Z,X,Y], mean and standard deviation (SD). A script in the preprocessing_helpers is included to compute means and SD, and requires the user to have produced whole organ masks to compute intensity histogram taken within the organ region of interest (ROI), ignoring background intensities. I would recommend using `organ-masker` for this (available in respository https://github.com/HiPCTProject/organ-masker). You then need to manually input these values in the `dataset.py` script (all normalization is handled in the code from there).
 
-## 2. Send data on the UCL CS HPC
+## 3. Send data on the UCL CS HPC
 
 > **TL;DR** Choose your preferred way to transfer your TIFF datasets to the cluster.
 
@@ -24,12 +38,12 @@ If you're on a computer wired to the UCL network or with an active UCL VPN, you 
 rsync -avz /mnt/d/ucemlef/DATA_FOLDER ID@pryor.cs.ucl.ac.uk:/home/ID/storage/STORAGESPACE_NAME/
 ```
 
-You will be promtped to input your UCL CS HPC password and then the transfer will begin.
+You will be promtped to input your UCL CS HPC password and then the transfer will begin. 
 
 
 ### Send Dropbox folders containing TIFF files on cluster using `wget`
 
-If you have previously successfully uploaded all your datasets on Dropbox, you can download them directly to the cluster by leveraging the share link option (and switching the end `dl=0` to `dl=1`, enabling direct download). In a terminal on the cluster, submit with `qsub` an .sh file with these command lines (full example to download the Kaggle kidney dataset in the submission_scripts folder):
+If you have previously successfully uploaded all your datasets on Dropbox, you can download them directly to the cluster by leveraging the share link option (and switching the end `dl=0` to `dl=1`, enabling direct download). In a terminal on the cluster, submit with `qsub` an `.sh` file with these command lines (full example to download the Kaggle kidney dataset in the submission_scripts folder):
 
 ```bash
 wget -O DATASET_NAME.zip "https://www.dropbox.com/DROPBOX_SHARELINK&dl=1"
@@ -39,11 +53,11 @@ rm DATASET_NAME.zip
 
 It will attempt zipping all files to a zipped folder, download it, and then unzip it locally, so this option may crash given a lot of TIFF images in a dataset. Do double-check that it worked and repeat if it didn't.
 
-## 3. Preprocess dataset for training or fine-tuning
+## 4. Preprocess dataset for training or fine-tuning
 
 > **TL;DR** From input TIFF slices, produce memory-mapped files used to train/fine-tune.
 
-If you want to fine-tune or train the network on your own datasets, carry on reading here, but if you simply want to run inference, skip to **Section 5** below. We now want to convert the TIFF series for both images and labels to memory-mapped volumetric files for all subjects (*e.g.* Subject01.mmap and Subject01_mask.mmap). Launch with `qsub` your preprocessing .sh script in the submission_scripts folder (calling `prepare_dataset.py`). N.B. This part does not yet require GPU. 
+If you want to fine-tune or train the network on your own datasets, carry on reading here, but if you simply want to run inference, skip to **Section 6** below. We now want to convert the TIFF series for both images and labels to memory-mapped volumetric files for all subjects (*e.g.* `Subject01.mmap` and `Subject01_mask.mmap`). Launch with `qsub` your preprocessing `.sh` script in the submission_scripts folder (calling `prepare_dataset.py`). *N.B. This part does not yet require GPU.* 
 
 The Python call should look simply like:
 ```bash
@@ -75,16 +89,16 @@ to the following structure below, including only the memory-mapped files that wi
 └── ...
 ```
 
-I like tracking the progress of my scripts (especially the training/fine-tuning) using the command line below on the output log files in the folder you specified with the `-o` flag in your .sh script (live updates with `-f`).
+I like tracking the progress of my scripts (especially the training/fine-tuning) using the command line below on the output log files in the folder you specified with the `-o` flag in your `.sh` script (live updates with `-f`).
 ```bash
 tail -f  /home/ID/storage/STORAGESPACE_NAME/LOGS_FOLDER/prepare_data.oPROCESSID
 ```
 
-## 4. Launch training or fine-tuning
+## 5. Launch training or fine-tuning
 
 > **TL;DR** Train/fine-tune on all orthogonal axes and produce model weights (.pth) to be loaded later for inference.
 
-To launch training/fine-tuning, simply edit your training .sh file (example in submission_scripts folder) and submit with `qsub` like above. Since the model is essentially 2D, we "slice through" the volumes along each axis for training and validation by specifying along which axis the data loader will sample the 1536 x 1536 x 3 pseudo-volumes used. This is done by adding the extension `_xz` and `_zy` at the end of your data ID like shown below (no specification means sampling along the default XY plane).
+To launch training/fine-tuning, simply edit your training `.sh` file (example in submission_scripts folder) and submit with `qsub` like above. Since the model is essentially 2D, we "slice through" the volumes along each axis for training and validation by specifying along which axis the data loader will sample the 1536 x 1536 x 3 pseudo-volumes used. This is done by adding the extension `_xz` and `_zy` at the end of your data ID like shown below (no specification means sampling along the default XY plane).
 
 
 ```bash
@@ -192,13 +206,24 @@ group_stds = {
 }
 ```
 
-## 5. Running inference on new datasets
+Otherwise, all scripts are tailored for multi-GPU processing which allows you to provide access to more than one GPU in your `.sh` script using parameters such as those below. Here, we are assigning 4 GPUs (`-pe gpu 4`) which will each have access to a total of 256 GB of RAM or 64 GB per GPU (`-l tmem=64G`) for up to 24h (`-l h_rt=24:00:00`). Technically, only 4 GPUs should be assigned to your job given those parameters, but there have been times where multi-GPU scripts did not run in pure isolation, so watch out for that. Be mindful of others using the cluster, we have a total of 1TB of memory and 8 H100 GPUs, but if you use 5 GPUs with 200 GB of allocated memory for each you would end up using all available memory, even though you're not using all GPUs. Also, note that we never set `hmem` for PyTorch GPU scripts.
+
+```bash
+#!/bin/bash
+#$ -l tmem=64G
+#$ -l h_rt=24:00:00
+#$ -l gpu=true
+#$ -l gpu_type=h100
+#$ -pe gpu 4
+```
+
+## 6. Running inference on new datasets
 
 > **TL;DR** Loading your model weights, generate memory-mapped predictions and binary TIFF series matching your input image datasets.
 
-### Cumulate averaged predictions in memory-mapped files
+### Accumulate averaged predictions in memory-mapped files
 
-Now that we have a trained model, we can load the weights of the best model obtained during training/fine-tuning and run inference on new datasets. Inference does not require you to pre-convert your TIFF series to memory-mapped files, this will be done by default as a first step. Then, predictions along orthogonal axes are cumulated in another memory-mapped file after launching your inference script on a GPU node. On top of running the model at least once along each orthogonal axis, 2.5D tiles will be flipped in each direction with  `--flip` argument (already set by default) and tiles will be rotated along Z by 90, 180 and 270 degrees with `--rot` argument. Tile-specific predictions are averaged from all these augmentations before thresholding to binary mask when exporting to TIFF to alleviate some of the biases from the 2.5D processing. This step won't write TIFF slices yet, since splitting the GPU processing from the memory-mapped volume to TIFF series export was more optimal as the writing on CPU is much faster using the second script for this conversion that I adapted. So first, run with `qsub` your inference .sh script in the submission_scripts folder (calling `inference.py`).
+Now that we have a trained model, we can load the weights of the best model obtained during training/fine-tuning and run inference on new datasets. Inference does not require you to pre-convert your TIFF series to memory-mapped files, this will be done by default as a first step. Then, predictions along orthogonal axes are accumulated in another memory-mapped file after launching your inference script on a GPU node. On top of running the model at least once along each orthogonal axis, 2.5D tiles will be flipped in each direction with  `--flip` argument (already set by default) and tiles will be rotated along Z by 90, 180 and 270 degrees with `--rot` argument. Tile-specific predictions are averaged from all these augmentations before thresholding to binary mask when exporting to TIFF to alleviate some of the biases from the 2.5D processing. This step won't write TIFF slices yet, since splitting the GPU processing from the memory-mapped volume to TIFF series export was more optimal as the writing on CPU is much faster using the second script for this conversion that I adapted. So first, run with `qsub` your inference `.sh` script in the submission_scripts folder (calling `inference.py`).
 
 ```bash
 python inference.py 
@@ -214,9 +239,9 @@ python inference.py
 ```
 
 
-### Write binary TIFFs series from thresholded memory-mapped files
+### Write binary TIFF series from thresholded memory-mapped files
 
-This step now allows you to obtain full series of TIFF slices matching your original image datasets given memory-mapped files from the inference step. You could adapt this code/step to output any other type of volumetric file format (NIFTI, multi-page TIFF, NRRD, HDF5, etc.) if your datasets have a reasonable shape. The code is written to massively accelerate the writing of thousands of TIFF images using CPU multi-processing. You can launch `exportinference_toTIFF.py` based on the example .sh script in the submission_scripts folder with a Python call that should look like this for a single dataset:
+This step now allows you to obtain full series of TIFF slices matching your original image datasets given memory-mapped files from the inference step. You could adapt this code/step to output any other type of volumetric file format (NIFTI, multi-page TIFF, NRRD, HDF5, etc.) if your datasets have a reasonable shape. The code is written to massively accelerate the writing of thousands of TIFF images using CPU multi-processing. You can launch `exportinference_toTIFF.py` based on the example `.sh` script in the submission_scripts folder with a Python call that should look like this for a single dataset:
 
 ```bash
 python exportInference_toTIFF.py 
